@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Sthalam · స్థలం</title>
+<meta name="description" content="Save, organize and find your places. Works offline.">
+<meta name="theme-color" content="#1B3A5C">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --ink:#1B3A5C;          /* survey ink blue */
+  --ink-deep:#12283F;
+  --pin:#E23A2E;          /* classic map-pin red */
+  --paper:#FAFAF7;
+  --line:#E3E1D8;
+  --mut:#6B7686;
+  --ok:#1E7F4F;
+  --radius:14px;
+  --shadow:0 4px 18px rgba(18,40,63,.16);
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Telugu",sans-serif;background:var(--paper);color:var(--ink-deep)}
+button{font:inherit;border:0;background:none;cursor:pointer;color:inherit}
+input,select,textarea{font:inherit;color:inherit}
+
+#map{position:fixed;inset:0;z-index:1;background:#DDE6DD}
+
+/* ---------- top bar ---------- */
+.topbar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;gap:8px;align-items:center;padding:10px 12px;padding-top:calc(10px + env(safe-area-inset-top,0px));pointer-events:none}
+.topbar>*{pointer-events:auto}
+.brand{display:flex;align-items:center;gap:8px;background:var(--ink);color:#fff;padding:8px 14px;border-radius:999px;box-shadow:var(--shadow);font-weight:700;letter-spacing:.02em}
+.brand small{font-weight:400;opacity:.75}
+.searchwrap{flex:1;display:flex;align-items:center;background:#fff;border-radius:999px;box-shadow:var(--shadow);padding:0 6px 0 14px;min-width:0}
+.searchwrap input{flex:1;border:0;outline:0;padding:10px 0;background:none;min-width:0}
+.iconbtn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;font-size:17px;color:var(--ink)}
+.iconbtn:active{background:#eef0ea}
+.langbtn{background:#fff;border-radius:999px;box-shadow:var(--shadow);padding:9px 12px;font-weight:700;font-size:13px;color:var(--ink)}
+
+/* ---------- floating map controls ---------- */
+.fabcol{position:fixed;right:12px;z-index:20;display:flex;flex-direction:column;gap:10px}
+.fabcol.gps{bottom:calc(180px + var(--safe-b))}
+.fab{width:48px;height:48px;border-radius:50%;background:#fff;box-shadow:var(--shadow);display:grid;place-items:center;font-size:20px;color:var(--ink)}
+.fab.primary{background:var(--pin);color:#fff;width:56px;height:56px;font-size:24px}
+.fab:active{transform:scale(.94)}
+
+/* ---------- crosshair add mode ---------- */
+#crosshair{position:fixed;left:50%;top:50%;z-index:15;transform:translate(-50%,-100%);display:none;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.35))}
+#crosshair svg{display:block}
+body.crosshair #crosshair{display:block}
+#xhbar{position:fixed;left:12px;right:12px;bottom:calc(14px + var(--safe-b));z-index:30;display:none;gap:10px}
+body.crosshair #xhbar{display:flex}
+body.crosshair .sheet,body.crosshair .fabcol{display:none}
+#xhbar .btn{flex:1}
+
+/* ---------- bottom sheet ---------- */
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:25;background:#fff;border-radius:20px 20px 0 0;box-shadow:0 -6px 24px rgba(18,40,63,.18);transition:transform .25s ease;transform:translateY(calc(100% - 158px - var(--safe-b)))}
+.sheet.open{transform:translateY(0)}
+.sheet-inner{max-height:72vh;display:flex;flex-direction:column}
+.grip{width:44px;height:5px;border-radius:3px;background:var(--line);margin:10px auto 4px;flex:0 0 auto}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:4px 16px 8px}
+.sheet-head h2{font-size:15px;font-weight:800;color:var(--ink)}
+.sheet-head .count{color:var(--mut);font-weight:500;font-size:13px}
+.chiprow{display:flex;gap:8px;overflow-x:auto;padding:2px 16px 10px;scrollbar-width:none;flex:0 0 auto}
+.chiprow::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;padding:7px 13px;border-radius:999px;border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--ink-deep);background:#fff}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.sortrow{display:flex;gap:8px;align-items:center;padding:0 16px 10px;flex:0 0 auto}
+.sortrow select{border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#fff;font-size:13px}
+.loclist{overflow-y:auto;padding:0 10px calc(14px + var(--safe-b));flex:1}
+.card{display:flex;gap:12px;align-items:center;padding:11px 8px;border-bottom:1px solid var(--line)}
+.card:last-child{border-bottom:0}
+.card .em{width:42px;height:42px;border-radius:12px;background:var(--paper);border:1px solid var(--line);display:grid;place-items:center;font-size:20px;flex:0 0 auto}
+.card .tx{flex:1;min-width:0}
+.card .tx b{display:block;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .tx span{font-size:12.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.card .dist{font-size:12px;font-weight:700;color:var(--ok);flex:0 0 auto}
+.empty{padding:34px 24px;text-align:center;color:var(--mut);font-size:14px;line-height:1.6}
+.empty b{color:var(--ink);display:block;margin-bottom:6px;font-size:15px}
+
+/* ---------- modals ---------- */
+.modal{position:fixed;inset:0;z-index:40;background:rgba(18,40,63,.45);display:none;align-items:flex-end;justify-content:center}
+.modal.show{display:flex}
+.panel{background:#fff;width:100%;max-width:560px;border-radius:20px 20px 0 0;max-height:92vh;overflow-y:auto;padding:18px 18px calc(20px + var(--safe-b))}
+.panel h3{font-size:17px;color:var(--ink);margin-bottom:14px;font-weight:800}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12.5px;font-weight:700;color:var(--mut);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.field input[type=text],.field input[type=number],.field textarea,.field select{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:var(--paper);outline:0}
+.field input:focus,.field textarea:focus{border-color:var(--ink)}
+.field textarea{resize:vertical;min-height:70px}
+.catgrid{display:flex;flex-wrap:wrap;gap:8px}
+.catgrid .chip{font-size:13.5px}
+.coordrow{display:flex;gap:10px}
+.coordrow .field{flex:1}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;border-radius:12px;font-weight:700;font-size:15px}
+.btn.solid{background:var(--ink);color:#fff}
+.btn.red{background:var(--pin);color:#fff}
+.btn.ghost{border:1.5px solid var(--line);color:var(--ink)}
+.btn.sm{padding:9px 13px;font-size:13.5px;border-radius:10px}
+.btnrow{display:flex;gap:10px;margin-top:16px}
+.btnrow .btn{flex:1}
+.photoslot{width:100%;height:120px;border:1.5px dashed var(--line);border-radius:12px;display:grid;place-items:center;color:var(--mut);font-size:13.5px;overflow:hidden;position:relative;background:var(--paper)}
+.photoslot img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.photoslot .rm{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.55);color:#fff;border-radius:50%;width:28px;height:28px;display:grid;place-items:center;z-index:2}
+
+/* detail */
+.d-photo{width:100%;height:170px;border-radius:14px;object-fit:cover;margin-bottom:12px;background:var(--paper)}
+.d-title{display:flex;gap:10px;align-items:center;margin-bottom:4px}
+.d-title .em{font-size:26px}
+.d-title h3{margin:0}
+.d-sub{color:var(--mut);font-size:13px;margin-bottom:10px}
+.d-notes{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:14px;line-height:1.55;margin-bottom:12px;white-space:pre-wrap}
+.d-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.d-actions .btn{width:100%}
+.d-actions .wide{grid-column:1/-1}
+.btn.uber{background:#000;color:#fff}
+.btn.ola{background:#BFD730;color:#141414}
+
+/* menu panel rows */
+.mrow{display:flex;align-items:center;gap:12px;width:100%;padding:14px 6px;border-bottom:1px solid var(--line);font-size:15px;font-weight:600;text-align:left}
+.mrow:last-child{border-bottom:0}
+.mrow .ic{font-size:19px;width:28px;text-align:center}
+.mrow small{display:block;font-weight:400;color:var(--mut);font-size:12.5px}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:calc(190px + var(--safe-b));transform:translateX(-50%) translateY(8px);z-index:60;background:var(--ink-deep);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.leaflet-control-attribution{font-size:9px!important}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- top bar -->
+<div class="topbar">
+  <div class="brand">📍 Sthalam <small>· స్థలం</small></div>
+  <div class="searchwrap">
+    <input id="q" type="text" data-ph="search" placeholder="Search places…" autocomplete="off">
+    <button class="iconbtn" id="btnMenu" title="Menu">☰</button>
+  </div>
+  <button class="langbtn" id="btnLang">తె</button>
+</div>
+
+<!-- floating controls -->
+<div class="fabcol gps">
+  <button class="fab" id="btnLocate" title="My location">🎯</button>
+  <button class="fab primary" id="btnAdd" title="Add place">＋</button>
+</div>
+
+<!-- crosshair add mode -->
+<div id="crosshair">
+  <svg width="44" height="58" viewBox="0 0 44 58"><path d="M22 0C10 0 0 9.8 0 22c0 15 22 36 22 36s22-21 22-36C44 9.8 34 0 22 0z" fill="#E23A2E"/><circle cx="22" cy="21" r="8.5" fill="#fff"/></svg>
+</div>
+<div id="xhbar">
+  <button class="btn ghost" id="xhCancel" style="background:#fff" data-i18n="cancel">Cancel</button>
+  <button class="btn red" id="xhSave" data-i18n="saveSpot">Save this spot</button>
+</div>
+
+<!-- bottom sheet -->
+<div class="sheet" id="sheet">
+  <div class="sheet-inner">
+    <div class="grip" id="grip"></div>
+    <div class="sheet-head">
+      <h2 data-i18n="myPlaces">My places</h2>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="chiprow" id="chips"></div>
+    <div class="sortrow">
+      <label style="font-size:12.5px;color:var(--mut);font-weight:700" data-i18n="sort">Sort</label>
+      <select id="sort">
+        <option value="recent" data-i18n="recent">Recent first</option>
+        <option value="name" data-i18n="nameAZ">Name A–Z</option>
+        <option value="dist" data-i18n="nearest">Nearest first</option>
+      </select>
+    </div>
+    <div class="loclist" id="list"></div>
+  </div>
+</div>
+
+<!-- add/edit modal -->
+<div class="modal" id="mEdit">
+  <div class="panel">
+    <h3 id="editTitle" data-i18n="addPlace">Add place</h3>
+    <div class="field"><label data-i18n="name">Name</label><input type="text" id="fName" data-ph="namePh" placeholder="e.g. Amma's house"></div>
+    <div class="field"><label data-i18n="category">Category</label><div class="catgrid" id="fCats"></div></div>
+    <div class="coordrow">
+      <div class="field"><label data-i18n="lat">Latitude</label><input type="number" step="any" id="fLat"></div>
+      <div class="field"><label data-i18n="lng">Longitude</label><input type="number" step="any" id="fLng"></div>
+    </div>
+    <div class="field"><label data-i18n="notes">Notes</label><textarea id="fNotes" data-ph="notesPh" placeholder="Landmark, gate number, timings…"></textarea></div>
+    <div class="field"><label data-i18n="photo">Photo</label>
+      <div class="photoslot" id="photoSlot"><span data-i18n="addPhoto">📷 Tap to add photo</span></div>
+      <input type="file" id="fPhoto" accept="image/*" hidden>
+    </div>
+    <div class="btnrow">
+      <button class="btn ghost" id="editCancel" data-i18n="cancel">Cancel</button>
+      <button class="btn solid" id="editSave" data-i18n="save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- detail modal -->
+<div class="modal" id="mDetail"><div class="panel" id="detailBody"></div></div>
+
+<!-- menu modal -->
+<div class="modal" id="mMenu">
+  <div class="panel">
+    <h3 data-i18n="menu">Menu &amp; backup</h3>
+    <button class="mrow" id="mExpJson"><span class="ic">💾</span><span><span data-i18n="expJson">Export backup (JSON)</span><small data-i18n="expJsonS">Full backup incl. photos — reimport anytime</small></span></button>
+    <button class="mrow" id="mImpJson"><span class="ic">📥</span><span><span data-i18n="impJson">Import backup (JSON)</span><small data-i18n="impJsonS">Restore places from a backup file</small></span></button>
+    <button class="mrow" id="mExpGpx"><span class="ic">🗺️</span><span><span data-i18n="expGpx">Export GPX</span><small data-i18n="expGpxS">Open in OsmAnd, Garmin, GPS apps</small></span></button>
+    <button class="mrow" id="mExpKml"><span class="ic">🌐</span><span><span data-i18n="expKml">Export KML</span><small data-i18n="expKmlS">Open in Google Earth / My Maps</small></span></button>
+    <input type="file" id="impFile" accept=".json,application/json" hidden>
+    <div class="btnrow"><button class="btn ghost" id="menuClose" data-i18n="close">Close</button></div>
+    <p style="text-align:center;color:var(--mut);font-size:12px;margin-top:12px" id="stats"></p>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* =============== i18n =============== */
+const I18N = {
+ en:{search:"Search places…",myPlaces:"My places",sort:"Sort",recent:"Recent first",nameAZ:"Name A–Z",nearest:"Nearest first",
+  addPlace:"Add place",editPlace:"Edit place",name:"Name",category:"Category",lat:"Latitude",lng:"Longitude",notes:"Notes",photo:"Photo",
+  addPhoto:"📷 Tap to add photo",cancel:"Cancel",save:"Save",saveSpot:"Save this spot",close:"Close",menu:"Menu & backup",
+  expJson:"Export backup (JSON)",expJsonS:"Full backup incl. photos — reimport anytime",impJson:"Import backup (JSON)",impJsonS:"Restore places from a backup file",
+  expGpx:"Export GPX",expGpxS:"Open in OsmAnd, Garmin, GPS apps",expKml:"Export KML",expKmlS:"Open in Google Earth / My Maps",
+  navigate:"🧭 Navigate",share:"🔗 Share",copy:"📋 Copy coords",edit:"✏️ Edit",del:"🗑️ Delete",delConfirm:"Delete this place?",
+  uber:"🚘 Book Uber here",ola:"🚕 Book Ola here",
+  saved:"Saved ✓",deleted:"Deleted",copied:"Coordinates copied",imported:"Imported",noName:"Please enter a name",
+  emptyT:"No places yet",emptyS:"Tap ＋ to save your current spot, or long-press anywhere on the map.",
+  noResults:"No places match your search.",locating:"Finding your location…",locFail:"Couldn't get GPS location",
+  namePh:"e.g. Amma's house",notesPh:"Landmark, gate number, timings…",places:"places",
+  cats:{home:"Home",work:"Work",customs:"Customs",land:"Land",shop:"Shop",food:"Food",temple:"Temple",other:"Other"}},
+ te:{search:"స్థలాలను వెతకండి…",myPlaces:"నా స్థలాలు",sort:"క్రమం",recent:"కొత్తవి ముందు",nameAZ:"పేరు A–Z",nearest:"దగ్గరవి ముందు",
+  addPlace:"స్థలం జోడించండి",editPlace:"స్థలం సవరించండి",name:"పేరు",category:"వర్గం",lat:"అక్షాంశం",lng:"రేఖాంశం",notes:"గమనికలు",photo:"ఫోటో",
+  addPhoto:"📷 ఫోటో జోడించడానికి నొక్కండి",cancel:"రద్దు",save:"సేవ్",saveSpot:"ఈ స్థలం సేవ్ చేయి",close:"మూసివేయి",menu:"మెనూ & బ్యాకప్",
+  expJson:"బ్యాకప్ ఎగుమతి (JSON)",expJsonS:"ఫోటోలతో సహా పూర్తి బ్యాకప్",impJson:"బ్యాకప్ దిగుమతి (JSON)",impJsonS:"బ్యాకప్ ఫైల్ నుండి పునరుద్ధరించండి",
+  expGpx:"GPX ఎగుమతి",expGpxS:"OsmAnd, Garmin, GPS యాప్‌లలో తెరవండి",expKml:"KML ఎగుమతి",expKmlS:"Google Earth / My Mapsలో తెరవండి",
+  navigate:"🧭 దారి చూపు",share:"🔗 పంచుకో",copy:"📋 కోఆర్డినేట్స్ కాపీ",edit:"✏️ సవరించు",del:"🗑️ తొలగించు",delConfirm:"ఈ స్థలాన్ని తొలగించాలా?",
+  uber:"🚘 ఇక్కడికి Uber బుక్ చేయి",ola:"🚕 ఇక్కడికి Ola బుక్ చేయి",
+  saved:"సేవ్ అయింది ✓",deleted:"తొలగించబడింది",copied:"కోఆర్డినేట్స్ కాపీ అయ్యాయి",imported:"దిగుమతి అయింది",noName:"దయచేసి పేరు నమోదు చేయండి",
+  emptyT:"ఇంకా స్థలాలు లేవు",emptyS:"మీ ప్రస్తుత స్థలం సేవ్ చేయడానికి ＋ నొక్కండి, లేదా మ్యాప్‌పై లాంగ్-ప్రెస్ చేయండి.",
+  noResults:"మీ వెతుకులాటకు స్థలాలు లేవు.",locating:"మీ స్థానం కనుగొంటున్నాం…",locFail:"GPS స్థానం లభించలేదు",
+  namePh:"ఉదా. అమ్మ ఇల్లు",notesPh:"గుర్తు, గేట్ నంబర్, సమయాలు…",places:"స్థలాలు",
+  cats:{home:"ఇల్లు",work:"పని",customs:"కస్టమ్స్",land:"భూమి",shop:"షాప్",food:"భోజనం",temple:"గుడి",other:"ఇతర"}}
+};
+const CATS=[["home","🏠"],["work","💼"],["customs","🛃"],["land","🌾"],["shop","🛒"],["food","🍛"],["temple","🛕"],["other","⭐"]];
+const CATEMO=Object.fromEntries(CATS);
+let lang=localStorage.getItem("sth_lang")||"en";
+const t=k=>I18N[lang][k]??k;
+const tc=k=>I18N[lang].cats[k]??k;
+function applyI18n(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>el.textContent=t(el.dataset.i18n));
+  document.querySelectorAll("[data-ph]").forEach(el=>el.placeholder=t(el.dataset.ph));
+  document.getElementById("btnLang").textContent=lang==="en"?"తె":"En";
+  renderChips();renderList();
+}
+
+/* =============== IndexedDB =============== */
+let db;
+function openDB(){return new Promise((res,rej)=>{
+  const r=indexedDB.open("sthalam",1);
+  r.onupgradeneeded=e=>{const d=e.target.result;
+    if(!d.objectStoreNames.contains("locations")){
+      const s=d.createObjectStore("locations",{keyPath:"id"});
+      s.createIndex("created","created");
+    }};
+  r.onsuccess=e=>{db=e.target.result;res()};
+  r.onerror=()=>rej(r.error);
+});}
+const tx=(mode)=>db.transaction("locations",mode).objectStore("locations");
+const dbAll=()=>new Promise((res,rej)=>{const r=tx("readonly").getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const dbPut=v=>new Promise((res,rej)=>{const r=tx("readwrite").put(v);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
+const dbDel=id=>new Promise((res,rej)=>{const r=tx("readwrite").delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
+
+/* =============== state =============== */
+let all=[];            // all locations
+let markers={};        // id -> leaflet marker
+let myPos=null;        // {lat,lng}
+let filterCat="all", query="", sortBy="recent";
+let editId=null, editPhoto=null, photoRemoved=false;
+
+/* =============== map =============== */
+const map=L.map("map",{zoomControl:false}).setView([17.385,78.4867],11); // Hyderabad default
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+const pinIcon=L.divIcon({className:"",html:'<svg width="30" height="40" viewBox="0 0 44 58"><path d="M22 0C10 0 0 9.8 0 22c0 15 22 36 22 36s22-21 22-36C44 9.8 34 0 22 0z" fill="#E23A2E"/><circle cx="22" cy="21" r="8.5" fill="#fff"/></svg>',iconSize:[30,40],iconAnchor:[15,40],popupAnchor:[0,-38]});
+let myDot=null;
+
+map.on("contextmenu",e=>{ openEditor(null,{lat:e.latlng.lat,lng:e.latlng.lng}); });
+
+/* =============== helpers =============== */
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function toast(msg){const el=$("toast");el.textContent=msg;el.classList.add("show");clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove("show"),2200);}
+function fmt(n){return Number(n).toFixed(6);}
+function haversine(a,b){const R=6371e3,rad=x=>x*Math.PI/180;
+  const dLat=rad(b.lat-a.lat),dLng=rad(b.lng-a.lng);
+  const h=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));}
+function distStr(m){return m<1000?Math.round(m)+" m":(m/1000).toFixed(m<10000?1:0)+" km";}
+function dl(name,text,mime){const b=new Blob([text],{type:mime});const a=document.createElement("a");
+  a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000);}
+function blobToDataURL(blob){return new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(blob)});}
+function dataURLToBlob(u){const[a,b]=u.split(",");const m=a.match(/:(.*?);/)[1];const bin=atob(b);
+  const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);return new Blob([arr],{type:m});}
+
+/* compress photo to max 1280px jpeg */
+function compressImage(file){return new Promise(res=>{
+  const img=new Image();img.onload=()=>{
+    const M=1280,sc=Math.min(1,M/Math.max(img.width,img.height));
+    const c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);
+    c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+    c.toBlob(b=>res(b||file),"image/jpeg",.8);
+  };img.onerror=()=>res(file);img.src=URL.createObjectURL(file);
+});}
+
+/* =============== markers & list =============== */
+function refreshMarkers(){
+  Object.values(markers).forEach(m=>map.removeLayer(m));markers={};
+  for(const p of all){
+    const m=L.marker([p.lat,p.lng],{icon:pinIcon}).addTo(map);
+    m.bindPopup(`<b>${esc(p.name)}</b><br>${CATEMO[p.cat]||"⭐"} ${esc(tc(p.cat))}`);
+    m.on("click",()=>m.openPopup());
+    m.on("popupopen",()=>{const el=m.getPopup().getElement();if(el)el.onclick=()=>openDetail(p.id);});
+    markers[p.id]=m;
+  }
+}
+function filtered(){
+  let arr=all.filter(p=>(filterCat==="all"||p.cat===filterCat)&&
+    (!query||p.name.toLowerCase().includes(query)||(p.notes||"").toLowerCase().includes(query)));
+  if(sortBy==="name")arr.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sortBy==="dist"&&myPos)arr.sort((a,b)=>haversine(myPos,a)-haversine(myPos,b));
+  else arr.sort((a,b)=>b.created-a.created);
+  return arr;
+}
+function renderChips(){
+  const c=$("chips");c.innerHTML="";
+  const mk=(key,label)=>{const b=document.createElement("button");b.className="chip"+((filterCat===key)?" on":"");
+    b.textContent=label;b.onclick=()=>{filterCat=key;renderChips();renderList();};c.appendChild(b);};
+  mk("all",(lang==="en"?"All":"అన్నీ"));
+  CATS.forEach(([k,e])=>mk(k,`${e} ${tc(k)}`));
+}
+function renderList(){
+  const box=$("list");const arr=filtered();
+  $("count").textContent=`${all.length} ${t("places")}`;
+  if(!all.length){box.innerHTML=`<div class="empty"><b>${t("emptyT")}</b>${t("emptyS")}</div>`;return;}
+  if(!arr.length){box.innerHTML=`<div class="empty">${t("noResults")}</div>`;return;}
+  box.innerHTML="";
+  for(const p of arr){
+    const d=document.createElement("div");d.className="card";
+    const dist=myPos?`<span class="dist">${distStr(haversine(myPos,p))}</span>`:"";
+    d.innerHTML=`<div class="em">${CATEMO[p.cat]||"⭐"}</div>
+      <div class="tx"><b>${esc(p.name)}</b><span>${esc(p.notes||tc(p.cat))}</span></div>${dist}`;
+    d.onclick=()=>openDetail(p.id);
+    box.appendChild(d);
+  }
+}
+
+/* =============== editor =============== */
+function renderCatPicker(sel){
+  const g=$("fCats");g.innerHTML="";
+  CATS.forEach(([k,e])=>{const b=document.createElement("button");
+    b.className="chip"+(sel===k?" on":"");b.textContent=`${e} ${tc(k)}`;b.dataset.k=k;
+    b.onclick=()=>renderCatPicker(k);g.appendChild(b);});
+  g.dataset.sel=sel;
+}
+async function openEditor(id,coords){
+  editId=id;editPhoto=null;photoRemoved=false;
+  const p=id?all.find(x=>x.id===id):null;
+  $("editTitle").textContent=id?t("editPlace"):t("addPlace");
+  $("fName").value=p?p.name:"";
+  $("fNotes").value=p?(p.notes||""):"";
+  $("fLat").value=p?p.lat:fmt(coords.lat);
+  $("fLng").value=p?p.lng:fmt(coords.lng);
+  renderCatPicker(p?p.cat:"other");
+  const slot=$("photoSlot");
+  if(p&&p.photo){slot.innerHTML=`<img src="${URL.createObjectURL(p.photo)}"><button class="rm" id="rmPhoto">✕</button>`;hookRm();}
+  else slot.innerHTML=`<span>${t("addPhoto")}</span>`;
+  $("mEdit").classList.add("show");
+}
+function hookRm(){const r=$("rmPhoto");if(r)r.onclick=e=>{e.stopPropagation();photoRemoved=true;editPhoto=null;$("photoSlot").innerHTML=`<span>${t("addPhoto")}</span>`;};}
+$("photoSlot").onclick=()=>$("fPhoto").click();
+$("fPhoto").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  editPhoto=await compressImage(f);photoRemoved=false;
+  $("photoSlot").innerHTML=`<img src="${URL.createObjectURL(editPhoto)}"><button class="rm" id="rmPhoto">✕</button>`;hookRm();
+  e.target.value="";
+};
+$("editCancel").onclick=()=>$("mEdit").classList.remove("show");
+$("editSave").onclick=async()=>{
+  const name=$("fName").value.trim();
+  if(!name){toast(t("noName"));return;}
+  const lat=parseFloat($("fLat").value),lng=parseFloat($("fLng").value);
+  if(isNaN(lat)||isNaN(lng)){toast("Invalid coordinates");return;}
+  const cat=$("fCats").dataset.sel||"other";
+  let rec;
+  if(editId){rec=all.find(x=>x.id===editId);
+    rec.name=name;rec.cat=cat;rec.notes=$("fNotes").value.trim();rec.lat=lat;rec.lng=lng;rec.updated=Date.now();
+    if(editPhoto)rec.photo=editPhoto;else if(photoRemoved)rec.photo=null;
+  }else{
+    rec={id:crypto.randomUUID(),name,cat,notes:$("fNotes").value.trim(),lat,lng,photo:editPhoto,created:Date.now(),updated:Date.now()};
+    all.push(rec);
+  }
+  await dbPut(rec);
+  $("mEdit").classList.remove("show");
+  refreshMarkers();renderList();toast(t("saved"));
+};
+
+/* =============== detail =============== */
+async function openDetail(id){
+  const p=all.find(x=>x.id===id);if(!p)return;
+  const body=$("detailBody");
+  const img=p.photo?`<img class="d-photo" src="${URL.createObjectURL(p.photo)}">`:"";
+  const dist=myPos?` · ${distStr(haversine(myPos,p))}`:"";
+  body.innerHTML=`${img}
+    <div class="d-title"><span class="em">${CATEMO[p.cat]||"⭐"}</span><h3>${esc(p.name)}</h3></div>
+    <div class="d-sub">${esc(tc(p.cat))} · ${fmt(p.lat)}, ${fmt(p.lng)}${dist}</div>
+    ${p.notes?`<div class="d-notes">${esc(p.notes)}</div>`:""}
+    <div class="d-actions">
+      <button class="btn uber" id="dUber">${t("uber")}</button>
+      <button class="btn ola" id="dOla">${t("ola")}</button>
+      <button class="btn solid" id="dNav">${t("navigate")}</button>
+      <button class="btn ghost" id="dShare">${t("share")}</button>
+      <button class="btn ghost" id="dCopy">${t("copy")}</button>
+      <button class="btn ghost" id="dEdit">${t("edit")}</button>
+      <button class="btn red wide" id="dDel">${t("del")}</button>
+      <button class="btn ghost wide" id="dClose">${t("close")}</button>
+    </div>`;
+  $("mDetail").classList.add("show");
+  $("dUber").onclick=()=>{
+    const u=new URL("https://m.uber.com/ul/");
+    u.search=new URLSearchParams({
+      "action":"setPickup","pickup":"my_location",
+      "dropoff[latitude]":p.lat,"dropoff[longitude]":p.lng,
+      "dropoff[nickname]":p.name,"dropoff[formatted_address]":p.notes||p.name
+    }).toString();
+    window.open(u.toString(),"_blank");
+  };
+  $("dOla").onclick=()=>{
+    const u=new URL("https://olawebcdn.com/assets/ola-universal-link.html");
+    u.search=new URLSearchParams({
+      "landing_page":"bk","drop_lat":p.lat,"drop_lng":p.lng,
+      "drop_address":p.name,"category":"mini"
+    }).toString();
+    window.open(u.toString(),"_blank");
+  };
+  $("dNav").onclick=()=>window.open(`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`,"_blank");
+  $("dShare").onclick=async()=>{
+    const text=`${p.name}\nhttps://maps.google.com/?q=${p.lat},${p.lng}`;
+    if(navigator.share){try{await navigator.share({title:p.name,text});}catch(_){}}
+    else{await navigator.clipboard.writeText(text);toast(t("copied"));}
+  };
+  $("dCopy").onclick=async()=>{await navigator.clipboard.writeText(`${fmt(p.lat)}, ${fmt(p.lng)}`);toast(t("copied"));};
+  $("dEdit").onclick=()=>{$("mDetail").classList.remove("show");openEditor(p.id);};
+  $("dDel").onclick=async()=>{
+    if(!confirm(t("delConfirm")))return;
+    await dbDel(p.id);all=all.filter(x=>x.id!==p.id);
+    $("mDetail").classList.remove("show");refreshMarkers();renderList();toast(t("deleted"));
+  };
+  $("dClose").onclick=()=>$("mDetail").classList.remove("show");
+  map.setView([p.lat,p.lng],Math.max(map.getZoom(),15));
+}
+
+/* =============== GPS =============== */
+function locate(save){
+  toast(t("locating"));
+  navigator.geolocation.getCurrentPosition(pos=>{
+    myPos={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    if(!myDot){myDot=L.circleMarker([myPos.lat,myPos.lng],{radius:7,color:"#fff",weight:2,fillColor:"#1B6FE2",fillOpacity:1}).addTo(map);}
+    else myDot.setLatLng([myPos.lat,myPos.lng]);
+    map.setView([myPos.lat,myPos.lng],16);
+    renderList();
+    if(save)openEditor(null,myPos);
+  },()=>toast(t("locFail")),{enableHighAccuracy:true,timeout:12000,maximumAge:5000});
+}
+$("btnLocate").onclick=()=>locate(false);
+
+/* =============== add flow: FAB -> crosshair mode =============== */
+$("btnAdd").onclick=()=>{
+  document.body.classList.add("crosshair");
+  if(myPos)map.setView([myPos.lat,myPos.lng],Math.max(map.getZoom(),16));
+};
+$("xhCancel").onclick=()=>document.body.classList.remove("crosshair");
+$("xhSave").onclick=()=>{
+  const c=map.getCenter();
+  document.body.classList.remove("crosshair");
+  openEditor(null,{lat:c.lat,lng:c.lng});
+};
+
+/* =============== sheet, search, sort =============== */
+$("grip").onclick=()=>$("sheet").classList.toggle("open");
+$("q").oninput=e=>{query=e.target.value.trim().toLowerCase();renderList();if(query)$("sheet").classList.add("open");};
+$("sort").onchange=e=>{sortBy=e.target.value;if(sortBy==="dist"&&!myPos)locate(false);renderList();};
+
+/* =============== menu / export / import =============== */
+$("btnMenu").onclick=()=>{$("stats").textContent=`${all.length} ${t("places")} · Sthalam v1.0`;$("mMenu").classList.add("show");};
+$("menuClose").onclick=()=>$("mMenu").classList.remove("show");
+[$("mEdit"),$("mDetail"),$("mMenu")].forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.classList.remove("show");}));
+
+$("mExpJson").onclick=async()=>{
+  const out=[];
+  for(const p of all){
+    const o={...p};
+    o.photo=p.photo?await blobToDataURL(p.photo):null;
+    out.push(o);
+  }
+  dl(`sthalam-backup-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify({app:"sthalam",v:1,exported:Date.now(),locations:out},null,1),"application/json");
+};
+$("mImpJson").onclick=()=>$("impFile").click();
+$("impFile").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{
+    const data=JSON.parse(await f.text());
+    const arr=Array.isArray(data)?data:(data.locations||[]);
+    let n=0;
+    for(const o of arr){
+      if(typeof o.lat!=="number"||typeof o.lng!=="number"||!o.name)continue;
+      const rec={id:o.id||crypto.randomUUID(),name:String(o.name),cat:CATEMO[o.cat]?o.cat:"other",
+        notes:String(o.notes||""),lat:o.lat,lng:o.lng,
+        photo:(o.photo&&typeof o.photo==="string"&&o.photo.startsWith("data:"))?dataURLToBlob(o.photo):null,
+        created:o.created||Date.now(),updated:o.updated||Date.now()};
+      const i=all.findIndex(x=>x.id===rec.id);
+      if(i>=0)all[i]=rec;else all.push(rec);
+      await dbPut(rec);n++;
+    }
+    refreshMarkers();renderList();toast(`${t("imported")}: ${n}`);
+  }catch(err){toast("Import failed: "+err.message);}
+  e.target.value="";
+};
+$("mExpGpx").onclick=()=>{
+  const wpts=all.map(p=>`<wpt lat="${p.lat}" lon="${p.lng}"><name>${esc(p.name)}</name><desc>${esc(p.notes||"")}</desc><type>${esc(p.cat)}</type></wpt>`).join("\n");
+  dl("sthalam.gpx",`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Sthalam" xmlns="http://www.topografix.com/GPX/1/1">\n${wpts}\n</gpx>`,"application/gpx+xml");
+};
+$("mExpKml").onclick=()=>{
+  const pm=all.map(p=>`<Placemark><name>${esc(p.name)}</name><description>${esc(p.notes||"")}</description><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`).join("\n");
+  dl("sthalam.kml",`<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Sthalam</name>\n${pm}\n</Document></kml>`,"application/vnd.google-earth.kml+xml");
+};
+
+/* =============== lang toggle =============== */
+$("btnLang").onclick=()=>{lang=lang==="en"?"te":"en";localStorage.setItem("sth_lang",lang);applyI18n();};
+
+/* =============== boot =============== */
+(async function(){
+  await openDB();
+  all=await dbAll();
+  refreshMarkers();
+  applyI18n();
+  if(all.length){
+    const g=L.featureGroup(Object.values(markers));
+    try{map.fitBounds(g.getBounds().pad(0.2));}catch(_){}
+  }else{
+    locate(false);
+  }
+  if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{});
+})();
+</script>
+</body>
+</html>
