@@ -120,6 +120,8 @@ body.crosshair .sheet,body.crosshair .fabcol{display:none}
 .d-actions .wide{grid-column:1/-1}
 .btn.uber{background:#000;color:#fff}
 .btn.ola{background:#BFD730;color:#141414}
+.btn.rapido{background:#FFCB05;color:#141414}
+.reshead{padding:10px 8px 4px;font-size:12px;font-weight:800;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
 
 /* menu panel rows */
 .mrow{display:flex;align-items:center;gap:12px;width:100%;padding:14px 6px;border-bottom:1px solid var(--line);font-size:15px;font-weight:600;text-align:left}
@@ -195,6 +197,7 @@ body.crosshair .sheet,body.crosshair .fabcol{display:none}
       <div class="field"><label data-i18n="lat">Latitude</label><input type="number" step="any" id="fLat"></div>
       <div class="field"><label data-i18n="lng">Longitude</label><input type="number" step="any" id="fLng"></div>
     </div>
+    <div class="field"><label data-i18n="address">Address</label><input type="text" id="fAddr" autocomplete="off"></div>
     <div class="field"><label data-i18n="notes">Notes</label><textarea id="fNotes" data-ph="notesPh" placeholder="Landmark, gate number, timings…"></textarea></div>
     <div class="field"><label data-i18n="photo">Photo</label>
       <div class="photoslot" id="photoSlot"><span data-i18n="addPhoto">📷 Tap to add photo</span></div>
@@ -216,9 +219,10 @@ body.crosshair .sheet,body.crosshair .fabcol{display:none}
     <h3 data-i18n="menu">Menu &amp; backup</h3>
     <button class="mrow" id="mExpJson"><span class="ic">💾</span><span><span data-i18n="expJson">Export backup (JSON)</span><small data-i18n="expJsonS">Full backup incl. photos — reimport anytime</small></span></button>
     <button class="mrow" id="mImpJson"><span class="ic">📥</span><span><span data-i18n="impJson">Import backup (JSON)</span><small data-i18n="impJsonS">Restore places from a backup file</small></span></button>
+    <input type="file" id="impFile" accept=".json,.geojson,.kml,.csv,application/json" hidden>
     <button class="mrow" id="mExpGpx"><span class="ic">🗺️</span><span><span data-i18n="expGpx">Export GPX</span><small data-i18n="expGpxS">Open in OsmAnd, Garmin, GPS apps</small></span></button>
     <button class="mrow" id="mExpKml"><span class="ic">🌐</span><span><span data-i18n="expKml">Export KML</span><small data-i18n="expKmlS">Open in Google Earth / My Maps</small></span></button>
-    <input type="file" id="impFile" accept=".json,application/json" hidden>
+
     <div class="btnrow"><button class="btn ghost" id="menuClose" data-i18n="close">Close</button></div>
     <p style="text-align:center;color:var(--mut);font-size:12px;margin-top:12px" id="stats"></p>
   </div>
@@ -230,25 +234,29 @@ body.crosshair .sheet,body.crosshair .fabcol{display:none}
 <script>
 /* =============== i18n =============== */
 const I18N = {
- en:{search:"Search places…",myPlaces:"My places",sort:"Sort",recent:"Recent first",nameAZ:"Name A–Z",nearest:"Nearest first",
+ en:{search:"Search places · ⏎ map",myPlaces:"My places",sort:"Sort",recent:"Recent first",nameAZ:"Name A–Z",nearest:"Nearest first",
   addPlace:"Add place",editPlace:"Edit place",name:"Name",category:"Category",lat:"Latitude",lng:"Longitude",notes:"Notes",photo:"Photo",
   addPhoto:"📷 Tap to add photo",cancel:"Cancel",save:"Save",saveSpot:"Save this spot",close:"Close",menu:"Menu & backup",
-  expJson:"Export backup (JSON)",expJsonS:"Full backup incl. photos — reimport anytime",impJson:"Import backup (JSON)",impJsonS:"Restore places from a backup file",
+  expJson:"Export backup (JSON)",expJsonS:"Full backup incl. photos — reimport anytime",impJson:"Import backup / Google Maps",impJsonS:"JSON, Takeout GeoJSON, KML, saved-list CSV",
   expGpx:"Export GPX",expGpxS:"Open in OsmAnd, Garmin, GPS apps",expKml:"Export KML",expKmlS:"Open in Google Earth / My Maps",
   navigate:"🧭 Navigate",share:"🔗 Share",copy:"📋 Copy coords",edit:"✏️ Edit",del:"🗑️ Delete",delConfirm:"Delete this place?",
-  uber:"🚘 Book Uber here",ola:"🚕 Book Ola here",
+  uber:"🚘 Book Uber here",ola:"🚕 Book Ola here",rapido:"🏍️ Book Rapido here",rapidoHint:"Address copied — paste as drop in Rapido",
+  address:"Address",searchHint:"Type & press Enter to search the map",mapResults:"🌐 Map results",addrLoading:"Fetching address…",
+  saveHere:"＋ Save",myPlacesHead:"📍 My places",
   saved:"Saved ✓",deleted:"Deleted",copied:"Coordinates copied",imported:"Imported",noName:"Please enter a name",
   emptyT:"No places yet",emptyS:"Tap ＋ to save your current spot, or long-press anywhere on the map.",
   noResults:"No places match your search.",locating:"Finding your location…",locFail:"Couldn't get GPS location",
   namePh:"e.g. Amma's house",notesPh:"Landmark, gate number, timings…",places:"places",
   cats:{home:"Home",work:"Work",customs:"Customs",land:"Land",shop:"Shop",food:"Food",temple:"Temple",other:"Other"}},
- te:{search:"స్థలాలను వెతకండి…",myPlaces:"నా స్థలాలు",sort:"క్రమం",recent:"కొత్తవి ముందు",nameAZ:"పేరు A–Z",nearest:"దగ్గరవి ముందు",
+ te:{search:"వెతకండి · ⏎ మ్యాప్",myPlaces:"నా స్థలాలు",sort:"క్రమం",recent:"కొత్తవి ముందు",nameAZ:"పేరు A–Z",nearest:"దగ్గరవి ముందు",
   addPlace:"స్థలం జోడించండి",editPlace:"స్థలం సవరించండి",name:"పేరు",category:"వర్గం",lat:"అక్షాంశం",lng:"రేఖాంశం",notes:"గమనికలు",photo:"ఫోటో",
   addPhoto:"📷 ఫోటో జోడించడానికి నొక్కండి",cancel:"రద్దు",save:"సేవ్",saveSpot:"ఈ స్థలం సేవ్ చేయి",close:"మూసివేయి",menu:"మెనూ & బ్యాకప్",
-  expJson:"బ్యాకప్ ఎగుమతి (JSON)",expJsonS:"ఫోటోలతో సహా పూర్తి బ్యాకప్",impJson:"బ్యాకప్ దిగుమతి (JSON)",impJsonS:"బ్యాకప్ ఫైల్ నుండి పునరుద్ధరించండి",
+  expJson:"బ్యాకప్ ఎగుమతి (JSON)",expJsonS:"ఫోటోలతో సహా పూర్తి బ్యాకప్",impJson:"బ్యాకప్ / Google Maps దిగుమతి",impJsonS:"JSON, Takeout GeoJSON, KML, CSV",
   expGpx:"GPX ఎగుమతి",expGpxS:"OsmAnd, Garmin, GPS యాప్‌లలో తెరవండి",expKml:"KML ఎగుమతి",expKmlS:"Google Earth / My Mapsలో తెరవండి",
   navigate:"🧭 దారి చూపు",share:"🔗 పంచుకో",copy:"📋 కోఆర్డినేట్స్ కాపీ",edit:"✏️ సవరించు",del:"🗑️ తొలగించు",delConfirm:"ఈ స్థలాన్ని తొలగించాలా?",
-  uber:"🚘 ఇక్కడికి Uber బుక్ చేయి",ola:"🚕 ఇక్కడికి Ola బుక్ చేయి",
+  uber:"🚘 ఇక్కడికి Uber బుక్ చేయి",ola:"🚕 ఇక్కడికి Ola బుక్ చేయి",rapido:"🏍️ ఇక్కడికి Rapido బుక్ చేయి",rapidoHint:"చిరునామా కాపీ అయింది — Rapidoలో డ్రాప్‌గా పేస్ట్ చేయండి",
+  address:"చిరునామా",searchHint:"టైప్ చేసి Enter నొక్కండి — మ్యాప్‌లో వెతుకుతుంది",mapResults:"🌐 మ్యాప్ ఫలితాలు",addrLoading:"చిరునామా తెస్తున్నాం…",
+  saveHere:"＋ సేవ్",myPlacesHead:"📍 నా స్థలాలు",
   saved:"సేవ్ అయింది ✓",deleted:"తొలగించబడింది",copied:"కోఆర్డినేట్స్ కాపీ అయ్యాయి",imported:"దిగుమతి అయింది",noName:"దయచేసి పేరు నమోదు చేయండి",
   emptyT:"ఇంకా స్థలాలు లేవు",emptyS:"మీ ప్రస్తుత స్థలం సేవ్ చేయడానికి ＋ నొక్కండి, లేదా మ్యాప్‌పై లాంగ్-ప్రెస్ చేయండి.",
   noResults:"మీ వెతుకులాటకు స్థలాలు లేవు.",locating:"మీ స్థానం కనుగొంటున్నాం…",locFail:"GPS స్థానం లభించలేదు",
@@ -338,7 +346,7 @@ function refreshMarkers(){
 }
 function filtered(){
   let arr=all.filter(p=>(filterCat==="all"||p.cat===filterCat)&&
-    (!query||p.name.toLowerCase().includes(query)||(p.notes||"").toLowerCase().includes(query)));
+    (!query||p.name.toLowerCase().includes(query)||(p.notes||"").toLowerCase().includes(query)||(p.address||"").toLowerCase().includes(query)));
   if(sortBy==="name")arr.sort((a,b)=>a.name.localeCompare(b.name));
   else if(sortBy==="dist"&&myPos)arr.sort((a,b)=>haversine(myPos,a)-haversine(myPos,b));
   else arr.sort((a,b)=>b.created-a.created);
@@ -351,17 +359,36 @@ function renderChips(){
   mk("all",(lang==="en"?"All":"అన్నీ"));
   CATS.forEach(([k,e])=>mk(k,`${e} ${tc(k)}`));
 }
+let webResults=[];
 function renderList(){
   const box=$("list");const arr=filtered();
   $("count").textContent=`${all.length} ${t("places")}`;
-  if(!all.length){box.innerHTML=`<div class="empty"><b>${t("emptyT")}</b>${t("emptyS")}</div>`;return;}
-  if(!arr.length){box.innerHTML=`<div class="empty">${t("noResults")}</div>`;return;}
   box.innerHTML="";
+  if(webResults.length){
+    const h=document.createElement("div");h.className="reshead";h.textContent=t("mapResults");box.appendChild(h);
+    for(const r of webResults){
+      const d=document.createElement("div");d.className="card";
+      const nm=r.display_name.split(",")[0];
+      d.innerHTML=`<div class="em">🌐</div>
+        <div class="tx"><b>${esc(nm)}</b><span>${esc(r.display_name)}</span></div>
+        <button class="btn solid sm">${t("saveHere")}</button>`;
+      const go=()=>{map.setView([+r.lat,+r.lon],16);};
+      d.querySelector(".tx").onclick=go;d.querySelector(".em").onclick=go;
+      d.querySelector("button").onclick=()=>{
+        map.setView([+r.lat,+r.lon],16);
+        openEditor(null,{lat:+r.lat,lng:+r.lon},{name:nm,address:r.display_name});
+      };
+      box.appendChild(d);
+    }
+    const h2=document.createElement("div");h2.className="reshead";h2.textContent=t("myPlacesHead");box.appendChild(h2);
+  }
+  if(!all.length&&!webResults.length){box.innerHTML=`<div class="empty"><b>${t("emptyT")}</b>${t("emptyS")}</div>`;return;}
+  if(!arr.length&&!webResults.length){box.innerHTML=`<div class="empty">${t("noResults")}</div>`;return;}
   for(const p of arr){
     const d=document.createElement("div");d.className="card";
     const dist=myPos?`<span class="dist">${distStr(haversine(myPos,p))}</span>`:"";
     d.innerHTML=`<div class="em">${CATEMO[p.cat]||"⭐"}</div>
-      <div class="tx"><b>${esc(p.name)}</b><span>${esc(p.notes||tc(p.cat))}</span></div>${dist}`;
+      <div class="tx"><b>${esc(p.name)}</b><span>${esc(p.notes||p.address||tc(p.cat))}</span></div>${dist}`;
     d.onclick=()=>openDetail(p.id);
     box.appendChild(d);
   }
@@ -375,11 +402,27 @@ function renderCatPicker(sel){
     b.onclick=()=>renderCatPicker(k);g.appendChild(b);});
   g.dataset.sel=sel;
 }
-async function openEditor(id,coords){
+/* =============== geocoding (Nominatim / OSM) =============== */
+async function revGeocode(lat,lng){
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`);
+    if(!r.ok)return "";
+    return (await r.json()).display_name||"";
+  }catch(_){return "";}
+}
+async function geoSearch(q){
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=${encodeURIComponent(q)}`);
+    return r.ok?await r.json():[];
+  }catch(_){return [];}
+}
+
+async function openEditor(id,coords,pre){
   editId=id;editPhoto=null;photoRemoved=false;
   const p=id?all.find(x=>x.id===id):null;
   $("editTitle").textContent=id?t("editPlace"):t("addPlace");
-  $("fName").value=p?p.name:"";
+  $("fName").value=p?p.name:(pre&&pre.name||"");
+  $("fAddr").value=p?(p.address||""):(pre&&pre.address||"");
   $("fNotes").value=p?(p.notes||""):"";
   $("fLat").value=p?p.lat:fmt(coords.lat);
   $("fLng").value=p?p.lng:fmt(coords.lng);
@@ -388,6 +431,13 @@ async function openEditor(id,coords){
   if(p&&p.photo){slot.innerHTML=`<img src="${URL.createObjectURL(p.photo)}"><button class="rm" id="rmPhoto">✕</button>`;hookRm();}
   else slot.innerHTML=`<span>${t("addPhoto")}</span>`;
   $("mEdit").classList.add("show");
+  if(!id&&!$("fAddr").value){
+    $("fAddr").placeholder=t("addrLoading");
+    revGeocode($("fLat").value,$("fLng").value).then(a=>{
+      $("fAddr").placeholder="";
+      if(a&&!$("fAddr").value)$("fAddr").value=a;
+    });
+  }
 }
 function hookRm(){const r=$("rmPhoto");if(r)r.onclick=e=>{e.stopPropagation();photoRemoved=true;editPhoto=null;$("photoSlot").innerHTML=`<span>${t("addPhoto")}</span>`;};}
 $("photoSlot").onclick=()=>$("fPhoto").click();
@@ -406,10 +456,10 @@ $("editSave").onclick=async()=>{
   const cat=$("fCats").dataset.sel||"other";
   let rec;
   if(editId){rec=all.find(x=>x.id===editId);
-    rec.name=name;rec.cat=cat;rec.notes=$("fNotes").value.trim();rec.lat=lat;rec.lng=lng;rec.updated=Date.now();
+    rec.name=name;rec.cat=cat;rec.notes=$("fNotes").value.trim();rec.address=$("fAddr").value.trim();rec.lat=lat;rec.lng=lng;rec.updated=Date.now();
     if(editPhoto)rec.photo=editPhoto;else if(photoRemoved)rec.photo=null;
   }else{
-    rec={id:crypto.randomUUID(),name,cat,notes:$("fNotes").value.trim(),lat,lng,photo:editPhoto,created:Date.now(),updated:Date.now()};
+    rec={id:crypto.randomUUID(),name,cat,notes:$("fNotes").value.trim(),address:$("fAddr").value.trim(),lat,lng,photo:editPhoto,created:Date.now(),updated:Date.now()};
     all.push(rec);
   }
   await dbPut(rec);
@@ -425,11 +475,12 @@ async function openDetail(id){
   const dist=myPos?` · ${distStr(haversine(myPos,p))}`:"";
   body.innerHTML=`${img}
     <div class="d-title"><span class="em">${CATEMO[p.cat]||"⭐"}</span><h3>${esc(p.name)}</h3></div>
-    <div class="d-sub">${esc(tc(p.cat))} · ${fmt(p.lat)}, ${fmt(p.lng)}${dist}</div>
+    <div class="d-sub">${esc(tc(p.cat))} · ${fmt(p.lat)}, ${fmt(p.lng)}${dist}${p.address?`<br>📮 ${esc(p.address)}`:""}</div>
     ${p.notes?`<div class="d-notes">${esc(p.notes)}</div>`:""}
     <div class="d-actions">
       <button class="btn uber" id="dUber">${t("uber")}</button>
       <button class="btn ola" id="dOla">${t("ola")}</button>
+      <button class="btn rapido wide" id="dRapido">${t("rapido")}</button>
       <button class="btn solid" id="dNav">${t("navigate")}</button>
       <button class="btn ghost" id="dShare">${t("share")}</button>
       <button class="btn ghost" id="dCopy">${t("copy")}</button>
@@ -443,7 +494,7 @@ async function openDetail(id){
     u.search=new URLSearchParams({
       "action":"setPickup","pickup":"my_location",
       "dropoff[latitude]":p.lat,"dropoff[longitude]":p.lng,
-      "dropoff[nickname]":p.name,"dropoff[formatted_address]":p.notes||p.name
+      "dropoff[nickname]":p.name,"dropoff[formatted_address]":p.address||p.notes||p.name
     }).toString();
     window.open(u.toString(),"_blank");
   };
@@ -451,9 +502,14 @@ async function openDetail(id){
     const u=new URL("https://olawebcdn.com/assets/ola-universal-link.html");
     u.search=new URLSearchParams({
       "landing_page":"bk","drop_lat":p.lat,"drop_lng":p.lng,
-      "drop_address":p.name,"category":"mini"
+      "drop_address":p.address||p.name,"category":"mini"
     }).toString();
     window.open(u.toString(),"_blank");
+  };
+  $("dRapido").onclick=async()=>{
+    try{await navigator.clipboard.writeText(p.address||p.name);}catch(_){}
+    toast(t("rapidoHint"));
+    setTimeout(()=>{location.href="intent://#Intent;package=com.rapido.passenger;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.rapido.passenger;end";},900);
   };
   $("dNav").onclick=()=>window.open(`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`,"_blank");
   $("dShare").onclick=async()=>{
@@ -500,7 +556,16 @@ $("xhSave").onclick=()=>{
 
 /* =============== sheet, search, sort =============== */
 $("grip").onclick=()=>$("sheet").classList.toggle("open");
-$("q").oninput=e=>{query=e.target.value.trim().toLowerCase();renderList();if(query)$("sheet").classList.add("open");};
+$("q").oninput=e=>{query=e.target.value.trim().toLowerCase();webResults=[];renderList();if(query)$("sheet").classList.add("open");};
+$("q").onkeydown=async e=>{
+  if(e.key!=="Enter")return;
+  const q=e.target.value.trim();if(!q)return;
+  e.target.blur();
+  webResults=await geoSearch(q);
+  $("sheet").classList.add("open");
+  renderList();
+  if(webResults.length)map.setView([+webResults[0].lat,+webResults[0].lon],14);
+};
 $("sort").onchange=e=>{sortBy=e.target.value;if(sortBy==="dist"&&!myPos)locate(false);renderList();};
 
 /* =============== menu / export / import =============== */
@@ -518,32 +583,91 @@ $("mExpJson").onclick=async()=>{
   dl(`sthalam-backup-${new Date().toISOString().slice(0,10)}.json`,JSON.stringify({app:"sthalam",v:1,exported:Date.now(),locations:out},null,1),"application/json");
 };
 $("mImpJson").onclick=()=>$("impFile").click();
+/* extract lat,lng from a google maps URL */
+function coordsFromGURL(u){
+  if(!u)return null;
+  let m=u.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)||u.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)||u.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+  return m?{lat:+m[1],lng:+m[2]}:null;
+}
+function parseCSV(text){ // minimal RFC4180 parser
+  const rows=[];let row=[],cur="",inQ=false;
+  for(let i=0;i<text.length;i++){const c=text[i];
+    if(inQ){if(c==='"'){if(text[i+1]==='"'){cur+='"';i++;}else inQ=false;}else cur+=c;}
+    else if(c==='"')inQ=true;
+    else if(c===","){row.push(cur);cur="";}
+    else if(c==="\n"||c==="\r"){if(c==="\r"&&text[i+1]==="\n")i++;row.push(cur);cur="";if(row.some(x=>x!==""))rows.push(row);row=[];}
+    else cur+=c;}
+  if(cur!==""||row.length){row.push(cur);if(row.some(x=>x!==""))rows.push(row);}
+  return rows;
+}
+function normalizeImported(list){ // -> records ready for dbPut
+  const out=[];
+  for(const o of list){
+    if(typeof o.lat!=="number"||typeof o.lng!=="number"||isNaN(o.lat)||isNaN(o.lng)||!o.name)continue;
+    out.push({id:o.id||crypto.randomUUID(),name:String(o.name),cat:CATEMO[o.cat]?o.cat:"other",
+      notes:String(o.notes||""),address:String(o.address||""),lat:o.lat,lng:o.lng,
+      photo:(o.photo&&typeof o.photo==="string"&&o.photo.startsWith("data:"))?dataURLToBlob(o.photo):null,
+      created:o.created||Date.now(),updated:o.updated||Date.now()});
+  }
+  return out;
+}
 $("impFile").onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
+  const text=await f.text();
+  let recs=[],skipped=0;
   try{
-    const data=JSON.parse(await f.text());
-    const arr=Array.isArray(data)?data:(data.locations||[]);
-    let n=0;
-    for(const o of arr){
-      if(typeof o.lat!=="number"||typeof o.lng!=="number"||!o.name)continue;
-      const rec={id:o.id||crypto.randomUUID(),name:String(o.name),cat:CATEMO[o.cat]?o.cat:"other",
-        notes:String(o.notes||""),lat:o.lat,lng:o.lng,
-        photo:(o.photo&&typeof o.photo==="string"&&o.photo.startsWith("data:"))?dataURLToBlob(o.photo):null,
-        created:o.created||Date.now(),updated:o.updated||Date.now()};
+    if(/\.kml$/i.test(f.name)||text.trimStart().startsWith("<?xml")||text.includes("<kml")){
+      const doc=new DOMParser().parseFromString(text,"text/xml");
+      for(const pm of doc.querySelectorAll("Placemark")){
+        const name=pm.querySelector("name")?.textContent?.trim();
+        const co=pm.querySelector("Point > coordinates")?.textContent?.trim();
+        if(!name||!co){skipped++;continue;}
+        const [lng,lat]=co.split(",").map(Number);
+        recs.push({name,lat,lng,notes:pm.querySelector("description")?.textContent?.trim()||""});
+      }
+    }else if(/\.csv$/i.test(f.name)){
+      const rows=parseCSV(text);
+      const head=rows[0].map(h=>h.toLowerCase());
+      const iT=head.indexOf("title"),iN=head.indexOf("note"),iU=head.indexOf("url");
+      for(const r of rows.slice(1)){
+        const url=iU>=0?r.slice(iU).join(","):""; // tolerate unquoted URLs with commas (URL is last col in Takeout)
+        const c=coordsFromGURL(url);
+        if(!c||!r[iT]){skipped++;continue;}
+        recs.push({name:r[iT],lat:c.lat,lng:c.lng,notes:(iN>=0?r[iN]:"")||""});
+      }
+    }else{
+      const data=JSON.parse(text);
+      if(data.type==="FeatureCollection"){ // Google Takeout GeoJSON
+        for(const ft of (data.features||[])){
+          if(ft.geometry?.type!=="Point"){skipped++;continue;}
+          const [lng,lat]=ft.geometry.coordinates;
+          const pr=ft.properties||{};
+          const name=pr.Title||pr.title||pr.location?.name||pr.name;
+          const c=(typeof lat==="number"&&(lat!==0||lng!==0))?{lat,lng}:coordsFromGURL(pr.google_maps_url||pr.Google_Maps_URL);
+          if(!name||!c){skipped++;continue;}
+          recs.push({name,lat:c.lat,lng:c.lng,address:pr.location?.address||"",notes:pr.Comment||pr.note||""});
+        }
+      }else{ // Sthalam backup (or plain array)
+        recs=Array.isArray(data)?data:(data.locations||[]);
+      }
+    }
+    const norm=normalizeImported(recs);
+    for(const rec of norm){
       const i=all.findIndex(x=>x.id===rec.id);
       if(i>=0)all[i]=rec;else all.push(rec);
-      await dbPut(rec);n++;
+      await dbPut(rec);
     }
-    refreshMarkers();renderList();toast(`${t("imported")}: ${n}`);
+    refreshMarkers();renderList();
+    toast(`${t("imported")}: ${norm.length}${skipped?` (skipped ${skipped})`:""}`);
   }catch(err){toast("Import failed: "+err.message);}
   e.target.value="";
 };
 $("mExpGpx").onclick=()=>{
-  const wpts=all.map(p=>`<wpt lat="${p.lat}" lon="${p.lng}"><name>${esc(p.name)}</name><desc>${esc(p.notes||"")}</desc><type>${esc(p.cat)}</type></wpt>`).join("\n");
+  const wpts=all.map(p=>`<wpt lat="${p.lat}" lon="${p.lng}"><name>${esc(p.name)}</name><desc>${esc([p.address,p.notes].filter(Boolean).join(" — "))}</desc><type>${esc(p.cat)}</type></wpt>`).join("\n");
   dl("sthalam.gpx",`<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Sthalam" xmlns="http://www.topografix.com/GPX/1/1">\n${wpts}\n</gpx>`,"application/gpx+xml");
 };
 $("mExpKml").onclick=()=>{
-  const pm=all.map(p=>`<Placemark><name>${esc(p.name)}</name><description>${esc(p.notes||"")}</description><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`).join("\n");
+  const pm=all.map(p=>`<Placemark><name>${esc(p.name)}</name><description>${esc([p.address,p.notes].filter(Boolean).join(" — "))}</description><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`).join("\n");
   dl("sthalam.kml",`<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Sthalam</name>\n${pm}\n</Document></kml>`,"application/vnd.google-earth.kml+xml");
 };
 

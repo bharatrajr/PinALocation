@@ -1,5 +1,5 @@
 /* Sthalam service worker — app shell + map tile caching */
-const SHELL = "sthalam-shell-v1";
+const SHELL = "sthalam-shell-v2";
 const TILES = "sthalam-tiles-v1";
 const TILE_LIMIT = 800; // ~ enough for a city area at several zoom levels
 
@@ -41,6 +41,9 @@ self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET") return;
 
+  // Geocoding API: always network, never cache, never HTML fallback
+  if (url.hostname === "nominatim.openstreetmap.org") return;
+
   // Map tiles: cache-first, populate as user browses
   if (url.hostname.endsWith("tile.openstreetmap.org")) {
     e.respondWith(
@@ -72,7 +75,9 @@ self.addEventListener("fetch", e => {
           caches.open(SHELL).then(c => c.put(e.request, copy));
         }
         return res;
-      }).catch(() => caches.match("./index.html"));
+      }).catch(() => e.request.mode === "navigate"
+        ? caches.match("./index.html")
+        : new Response("", { status: 503 }));
     })
   );
 });
